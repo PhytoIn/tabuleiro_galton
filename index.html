@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tabuleiro de Galton</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 10px;
+      background-color: #f7f5f2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #5a5a5a;
+      min-height: 100vh;
+      width: 100%;
+    }
+    
+    h1 {
+      color: #7a6c5d;
+      margin: 15px 0;
+      font-weight: 300;
+      font-size: calc(1.5rem + 1vw);
+      text-align: center;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      width: 100%;
+      max-width: 600px;
+    }
+    
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      background-color: #fff;
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      flex: 1;
+      min-width: 120px;
+    }
+    
+    label {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #7a6c5d;
+      font-size: 0.9rem;
+    }
+    
+    input[type="number"] {
+      padding: 8px;
+      border: 2px solid #e6e0d8;
+      border-radius: 8px;
+      font-size: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+      color: #5a5a5a;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      margin-top: 8px;
+      accent-color: #bc9f77;
+    }
+    
+    .button-container {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+    }
+    
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background-color: #bc9f77;
+      color: white;
+      flex: 1;
+      min-width: 120px;
+      max-width: 200px;
+    }
+    
+    button:hover {
+      background-color: #a88a62;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .board-container {
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      aspect-ratio: 3/4;
+      background-color: #fff;
+      border-radius: 16px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+      border: 6px solid #d8c4a9;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+    
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .side-panel {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 15px;
+      background-color: #d8c4a9;
+    }
+    
+    .left-panel {
+      left: 0;
+    }
+    
+    .right-panel {
+      right: 0;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 5px;
+      font-size: 16px;
+      color: #7a6c5d;
+      font-weight: 500;
+      width: 100%;
+      padding: 10px;
+    }
+    
+    @media (max-width: 480px) {
+      .control-group {
+        min-width: 100%;
+      }
+      
+      button {
+        min-width: 45%;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+      }
+      
+      .board-container {
+        border-width: 4px;
+      }
+      
+      .side-panel {
+        width: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Tabuleiro de Galton</h1>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label for="rows">Número de linhas:</label>
+      <input type="number" id="rows" min="1" max="20" value="20">
+    </div>
+    
+    <div class="control-group">
+      <label for="balls">Número de bolinhas:</label>
+      <input type="number" id="balls" min="1" max="10000" value="100">
+    </div>
+    
+    <div class="control-group">
+      <label for="speed">Velocidade:</label>
+      <input type="range" id="speed" min="0.5" max="5" step="0.1" value="5">
+    </div>
+  </div>
+  
+  <div class="button-container">
+    <button id="generate">Gerar Tabuleiro</button>
+    <button id="start">Iniciar Simulação</button>
+  </div>
+  
+  <div class="board-container">
+    <div class="side-panel left-panel"></div>
+    <canvas id="canvas"></canvas>
+    <div class="side-panel right-panel"></div>
+  </div>
+  
+  <div class="footer">
+    <p>© Rodrigo Pereira</p>
+  </div>
+  
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const rowsInput = document.getElementById('rows');
+    const ballsInput = document.getElementById('balls');
+    const speedInput = document.getElementById('speed');
+    let rows, width, height;
+    let finishedCounts = [];
+    let finishedBalls = []; // Array para armazenar as bolinhas que caíram
+    let totalBalls = 0;
+    let currentBall = 0;
+    let activeBalls = [];
+    let droppedBalls = 0; // Contador para rastrear bolinhas que já caíram
+    let spawnTimer;
+    let pegPositions = []; // Array para armazenar as posições dos pinos
+    let columnPositions = []; // Array para armazenar as posições das colunas
+    
+    // Definir o tamanho dos pinos como uma constante global
+    const PEG_RADIUS = 4.2; // 70% do tamanho original (6)
+    
+    // Ajustar o tamanho do canvas quando a janela for redimensionada
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      canvas.width = container.clientWidth - 30; // Subtrair a largura dos painéis laterais
+      canvas.height = container.clientHeight;
+      width = canvas.width;
+      height = canvas.height;
+      
+      // Redesenhar o tabuleiro se ele já foi gerado
+      if (rows) {
+        calculatePositions();
+        drawBoardStructure();
+        drawHistogram();
+      }
+    }
+    
+    // Inicializar o canvas e adicionar evento de redimensionamento
+    function initCanvas() {
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+    }
+    
+    // Paleta de cores
+    const colors = {
+      background: '#f2ebdf',
+      peg: '#bc9f77',
+      pegBorder: '#a88a62',
+      ballColors: ['#a0d2db', '#d4afb9', '#d1cfe2', '#9cadce', '#7ec4cf'],
+      binomialCurve: '#7a6c5d',
+      divider: '#d8c4a9'
+    };
+
+    function binomial(n, k) {
+      if (k < 0 || k > n) return 0;
+      let coeff = 1;
+      for (let i = 1; i <= k; i++) {
+        coeff *= (n - (k - i));
+        coeff /= i;
+      }
+      return coeff;
+    }
+    
+    // Calcular as posições dos pinos e colunas
+    function calculatePositions() {
+      rows = parseInt(rowsInput.value, 10);
+      const pegAreaHeight = height * 0.6;
+      const vSpacing = pegAreaHeight / (rows + 1);
+      
+      // Número de colunas = número de linhas + 1
+      const numColumns = rows + 1;
+      
+      // Calcular a largura de cada coluna
+      const columnWidth = width / numColumns;
+      
+      // Posição das colunas (linhas verticais)
+      columnPositions = [];
+      for (let i = 0; i <= numColumns; i++) {
+        columnPositions.push(i * columnWidth);
+      }
+      
+      // Posições dos pinos: matriz onde cada linha contém as posições X dos pinos naquela linha
+      pegPositions = [];
+      
+      // Para cada linha de pinos
+      for (let i = 0; i < rows; i++) {
+        const rowPegs = i + 1; // Número de pinos na linha atual
+        const pegRow = [];
+        
+        // Distribuir os pinos uniformemente
+        const startX = (width - (rowPegs - 1) * columnWidth) / 2;
+        for (let j = 0; j < rowPegs; j++) {
+          pegRow.push(startX + j * columnWidth);
+        }
+        
+        pegPositions.push({
+          y: vSpacing * (i + 1),
+          xPositions: pegRow
+        });
+      }
+    }
+
+    function drawBoardStructure() {
+      // Limpar o canvas
+      ctx.fillStyle = colors.background;
+      ctx.fillRect(0, 0, width, height);
+      
+      // Calcular as posições se necessário
+      if (pegPositions.length === 0) {
+        calculatePositions();
+      }
+      
+      const pegAreaHeight = height * 0.6;
+      
+      // Desenhar os pinos com tamanho reduzido
+      for (let i = 0; i < pegPositions.length; i++) {
+        const row = pegPositions[i];
+        const y = row.y;
+        
+        for (let j = 0; j < row.xPositions.length; j++) {
+          const x = row.xPositions[j];
+          
+          // Sombra do pino
+          ctx.fillStyle = 'rgba(0,0,0,0.1)';
+          ctx.beginPath();
+          ctx.arc(x + 1.5, y + 1.5, PEG_RADIUS, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Pino
+          ctx.fillStyle = colors.peg;
+          ctx.beginPath();
+          ctx.arc(x, y, PEG_RADIUS, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Borda do pino
+          ctx.strokeStyle = colors.pegBorder;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(x, y, PEG_RADIUS, 0, 2 * Math.PI);
+          ctx.stroke();
+        }
+      }
+      
+      // Desenhar as linhas verticais usando as posições das colunas
+      ctx.strokeStyle = colors.divider;
+      ctx.lineWidth = 3;
+      
+      for (let i = 0; i < columnPositions.length; i++) {
+        const x = columnPositions[i];
+        ctx.beginPath();
+        ctx.moveTo(x, pegAreaHeight);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+    }
+
+    function drawHistogram() {
+      if (columnPositions.length === 0) return;
+      
+      const pegAreaHeight = height * 0.6;
+      const binAreaStart = pegAreaHeight + 6;
+      const columnWidth = width / (rows + 1);
+      
+      // Desenhar as bolinhas nos bins
+      for (let bin = 0; bin < finishedBalls.length; bin++) {
+        const balls = finishedBalls[bin];
+        if (!balls) continue;
+        
+        const binX = bin * columnWidth;
+        const binWidth = columnWidth;
+        
+        // Garantir que sempre tenhamos 2 bolinhas por linha no bin, independente do tamanho da tela
+        const ballRadius = Math.min(5, binWidth / 6); // Ajustar o raio para que caibam 2 por largura
+        const ballSpacing = binWidth / 2.2;
+        const ballsPerRow = 2; // Sempre 2 bolinhas por linha
+        
+        for (let i = 0; i < balls.length; i++) {
+          const row = Math.floor(i / ballsPerRow);
+          const col = i % ballsPerRow;
+          
+          // Centralizar as bolinhas no bin
+          const xOffset = (binWidth - (ballsPerRow * ballSpacing)) / 2;
+          const x = binX + xOffset + (col * ballSpacing) + ballRadius * 1.5;
+          
+          // Posicionar as bolinhas de baixo para cima
+          const y = height - (ballRadius * 2) - (row * ballSpacing);
+          
+          // Não desenhar se estiver fora da área visível
+          if (y < binAreaStart) continue;
+          
+          const ball = balls[i];
+          
+          // Sombra da bolinha
+          ctx.fillStyle = 'rgba(0,0,0,0.1)';
+          ctx.beginPath();
+          ctx.arc(x + 1, y + 1, ballRadius, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Bolinha
+          ctx.fillStyle = ball.color;
+          ctx.beginPath();
+          ctx.arc(x, y, ballRadius, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Brilho na bolinha (para efeito 3D)
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.beginPath();
+          ctx.arc(x - ballRadius/2, y - ballRadius/2, ballRadius/3, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawBinomialCurve() {
+      const pegAreaHeight = height * 0.6;
+      const binAreaStart = pegAreaHeight + 6;
+      const binAreaHeight = height - binAreaStart;
+      const binCount = rows + 1;
+      const columnWidth = width / binCount;
+      const p = 0.5;
+      const pmf = [];
+      
+      for (let k = 0; k <= rows; k++) {
+        pmf.push(binomial(rows, k) * Math.pow(p, k) * Math.pow(1 - p, rows - k));
+      }
+      
+      // Encontrar contagem máxima em todos os bins
+      const binsCount = finishedBalls.map(bin => bin ? bin.length : 0);
+      const maxCount = Math.max(...binsCount, 1);
+      
+      // Ajustar a escala da curva para ficar dentro dos limites do tabuleiro
+      // Usar 80% da altura disponível para a curva para garantir que não ultrapasse
+      const curveScale = (binAreaHeight * 0.8) / maxCount;
+      
+      // Desenhar curva
+      ctx.strokeStyle = colors.binomialCurve;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      
+      for (let k = 0; k <= rows; k++) {
+        const xCenter = k * columnWidth + columnWidth / 2;
+        // Ajustar o cálculo para usar a escala definida
+        const expectedCount = pmf[k] * totalBalls;
+        const yCurve = binAreaStart + binAreaHeight - (expectedCount * curveScale);
+        
+        // Garantir que o ponto não ultrapasse os limites do canvas
+        const safeY = Math.max(binAreaStart, Math.min(height, yCurve));
+        
+        if (k === 0) ctx.moveTo(xCenter, safeY);
+        else ctx.lineTo(xCenter, safeY);
+      }
+      
+      ctx.stroke();
+    }
+
+    function generateBall() {
+      // Abordagem mais simples: escolher diretamente a coluna final
+      // e criar um caminho que leva a ela
+      
+      const numColumns = rows + 1;
+      const columnWidth = width / numColumns;
+      const pegAreaHeight = height * 0.6;
+      const randomColor = colors.ballColors[Math.floor(Math.random() * colors.ballColors.length)];
+      
+      // Escolher uma coluna aleatoriamente - distribuição binomial
+      // Para a simulação binomial perfeita, usamos o algoritmo de passeio aleatório
+      let position = 0; // Começar no meio
+      for (let i = 0; i < rows; i++) {
+        // 50% de chance de ir para a direita, 50% para a esquerda
+        position += Math.random() < 0.5 ? 1 : 0;
+      }
+      
+      // Agora position está entre 0 e rows (inclusive)
+      const finalBin = position;
+      
+      // Construir um caminho "realista" para a bolinha
+      const path = [];
+      
+      // Começar do topo central
+      path.push({ x: width / 2, y: 0 });
+      
+      // Para cada linha, escolher um pino que esteja na rota para o bin final
+      for (let i = 0; i < rows; i++) {
+        // Quanto progresso já fizemos para o destino? (0 a 1)
+        const progress = i / rows;
+        
+        // Posição X interpolada entre o centro e a coluna final
+        const targetX = (finalBin * columnWidth) + (columnWidth / 2);
+        const currentX = width / 2 + (targetX - width / 2) * progress;
+        
+        // Encontrar o pino mais próximo da posição atual
+        const pegRow = pegPositions[i];
+        let closestPegIndex = 0;
+        let minDistance = Infinity;
+        
+        for (let j = 0; j < pegRow.xPositions.length; j++) {
+          const distance = Math.abs(pegRow.xPositions[j] - currentX);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestPegIndex = j;
+          }
+        }
+        
+        // Adicionar este pino ao caminho
+        path.push({
+          x: pegRow.xPositions[closestPegIndex],
+          y: pegRow.y
+        });
+      }
+      
+      // Adicionar ponto final (centro da coluna de destino)
+      path.push({
+        x: (finalBin * columnWidth) + (columnWidth / 2),
+        y: pegAreaHeight + 5
+      });
+      
+      return { 
+        path, 
+        index: 0, 
+        t: 0, 
+        bin: finalBin, 
+        color: randomColor, 
+        finished: false 
+      };
+    }
+
+    function startSimulation() {
+      rows = parseInt(rowsInput.value, 10);
+      totalBalls = parseInt(ballsInput.value, 10);
+      // Garantir que totalBalls seja pelo menos 1
+      totalBalls = Math.max(1, totalBalls);
+      currentBall = 0;
+      activeBalls = [];
+      droppedBalls = 0; // Contador para as bolinhas que já caíram
+      
+      // Calcular posições
+      calculatePositions();
+      
+      // Para cada bin (coluna), inicializar um array vazio
+      const binCount = rows + 1;
+      finishedBalls = Array(binCount).fill().map(() => []);
+      finishedCounts = Array(binCount).fill(0);
+      
+      // Limpar tabuleiro antes de iniciar
+      drawBoardStructure();
+      
+      if (spawnTimer) clearInterval(spawnTimer);
+      
+      const speedFactor = parseFloat(speedInput.value);
+      const intervalMs = 300 / speedFactor;
+      
+      spawnTimer = setInterval(() => {
+        if (currentBall < totalBalls) {
+          const ball = generateBall();
+          if (ball) {
+            activeBalls.push(ball);
+            currentBall++;
+          }
+        } else {
+          clearInterval(spawnTimer);
+        }
+      }, intervalMs);
+      
+      requestAnimationFrame(animate);
+    }
+
+    function animate() {
+      // Redesenhar o tabuleiro sem limpar as bolinhas que já caíram
+      ctx.fillStyle = colors.background;
+      ctx.fillRect(0, 0, width, height);
+      
+      // Redesenhar a estrutura do tabuleiro
+      drawBoardStructure();
+      
+      // Desenhar as bolinhas que já caíram
+      drawHistogram();
+      
+      // Desenhar as bolinhas em movimento
+      const speedFactor = parseFloat(speedInput.value);
+      const columnWidth = width / (rows + 1);
+      const ballRadius = Math.min(5, columnWidth / 6); // Mesmo tamanho das bolinhas estáticas
+      
+      for (let i = activeBalls.length - 1; i >= 0; i--) {
+        const ball = activeBalls[i];
+        const { path } = ball;
+        
+        if (!path || ball.index >= path.length - 1) {
+          activeBalls.splice(i, 1);
+          continue;
+        }
+        
+        const p0 = path[ball.index];
+        const p1 = path[ball.index + 1];
+        
+        ball.t += 0.05 * speedFactor;
+        
+        if (ball.t >= 1) {
+          ball.t = 0;
+          ball.index++;
+          
+          if (ball.index >= path.length - 1) {
+            // Incrementar o contador de bolinhas que chegaram ao fim
+            droppedBalls++;
+            
+            // Verificar se o bin já existe
+            if (!finishedBalls[ball.bin]) {
+              finishedBalls[ball.bin] = [];
+            }
+            
+            // Adicionar a bolinha à coluna correspondente
+            finishedBalls[ball.bin].push({
+              color: ball.color
+            });
+            
+            // Atualizar a contagem
+            finishedCounts[ball.bin] = (finishedCounts[ball.bin] || 0) + 1;
+            
+            // Remover a bolinha das ativas
+            activeBalls.splice(i, 1);
+            continue;
+          }
+        }
+        
+        const tt = ball.t;
+        const cx = p0.x + (p1.x - p0.x) * tt;
+        const cy = p0.y + (p1.y - p0.y) * tt;
+        
+        // Sombra da bolinha
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.beginPath();
+        ctx.arc(cx + 1, cy + 1, ballRadius, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Bolinha
+        ctx.fillStyle = ball.color;
+        ctx.beginPath();
+        ctx.arc(cx, cy, ballRadius, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Brilho na bolinha (para efeito 3D)
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.beginPath();
+        ctx.arc(cx - ballRadius/2, cy - ballRadius/2, ballRadius/3, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      
+      if (activeBalls.length > 0 || currentBall < totalBalls) {
+        requestAnimationFrame(animate);
+      } else {
+        // Verificar se todas as bolinhas foram contabilizadas corretamente
+        let totalInBins = 0;
+        for (let bin = 0; bin < finishedBalls.length; bin++) {
+          if (finishedBalls[bin]) {
+            totalInBins += finishedBalls[bin].length;
+          }
+        }
+        
+        // Se o número não bate, corrigir
+        if (totalInBins !== totalBalls && droppedBalls === totalBalls) {
+          // Encontrar a coluna com mais bolinhas e adicionar as que faltam
+          let maxBin = 0;
+          let maxCount = 0;
+          for (let bin = 0; bin < finishedBalls.length; bin++) {
+            if (finishedBalls[bin] && finishedBalls[bin].length > maxCount) {
+              maxCount = finishedBalls[bin].length;
+              maxBin = bin;
+            }
+          }
+          
+          // Adicionar as bolinhas que faltam
+          const missing = totalBalls - totalInBins;
+          for (let i = 0; i < missing; i++) {
+            finishedBalls[maxBin].push({
+              color: colors.ballColors[Math.floor(Math.random() * colors.ballColors.length)]
+            });
+          }
+          
+          // Redesenhar o histograma com as bolinhas corrigidas
+          drawHistogram();
+        }
+        
+        // Desenhar a curva binomial SOMENTE quando todas as bolinhas caírem
+        drawBinomialCurve();
+      }
+    }
+
+    document.getElementById('generate').addEventListener('click', function() {
+      calculatePositions();
+      drawBoardStructure();
+    });
+    
+    document.getElementById('start').addEventListener('click', startSimulation);
+    
+    window.onload = function() {
+      initCanvas();
+      calculatePositions();
+      drawBoardStructure();
+    };
+  </script>
+</body>
+</html>
