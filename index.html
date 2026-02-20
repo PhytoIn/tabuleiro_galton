@@ -264,13 +264,14 @@
     let spawnTimer;
     let pegPositions = [];
     let columnPositions = [];
+    let simulationFinished = false;
     
     let PEG_RADIUS = 4.2;
     
     function resizeCanvas() {
       const container = canvas.parentElement;
       const dpr = window.devicePixelRatio || 1;
-      const cssWidth = container.clientWidth - 30;
+      const cssWidth = container.clientWidth;
       const cssHeight = container.clientHeight;
       
       // Definir tamanho real do canvas (alta resolução)
@@ -294,6 +295,10 @@
         calculatePositions();
         drawBoardStructure();
         drawHistogram();
+        // Redesenhar curva se a simulação já terminou
+        if (simulationFinished) {
+          drawBinomialCurve();
+        }
       }
     }
     
@@ -834,6 +839,7 @@ const pValue = chi2pValue(chi2, df);
     }
 
     function startSimulation() {
+      simulationFinished = false;
       rows = parseInt(rowsInput.value, 10);
       totalBalls = parseInt(ballsInput.value, 10);
       totalBalls = Math.max(1, totalBalls);
@@ -991,6 +997,7 @@ const pValue = chi2pValue(chi2, df);
         
         drawBinomialCurve();
         runChiSquaredTest();
+        simulationFinished = true;
       }
     }
 
@@ -1008,6 +1015,7 @@ const pValue = chi2pValue(chi2, df);
       currentBall = 0;
       droppedBalls = 0;
       totalBalls = 0;
+      simulationFinished = false;
       
       // Limpar resultado do teste anterior
       const resultDiv = document.getElementById('chi2-result');
