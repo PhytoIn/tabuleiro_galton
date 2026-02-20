@@ -265,14 +265,30 @@
     let pegPositions = [];
     let columnPositions = [];
     
-    const PEG_RADIUS = 4.2;
+    let PEG_RADIUS = 4.2;
     
     function resizeCanvas() {
       const container = canvas.parentElement;
-      canvas.width = container.clientWidth - 30;
-      canvas.height = container.clientHeight;
-      width = canvas.width;
-      height = canvas.height;
+      const dpr = window.devicePixelRatio || 1;
+      const cssWidth = container.clientWidth - 30;
+      const cssHeight = container.clientHeight;
+      
+      // Definir tamanho real do canvas (alta resolução)
+      canvas.width = cssWidth * dpr;
+      canvas.height = cssHeight * dpr;
+      
+      // Manter tamanho CSS original
+      canvas.style.width = cssWidth + 'px';
+      canvas.style.height = cssHeight + 'px';
+      
+      // Escalar o contexto para desenhar em coordenadas CSS
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      
+      width = cssWidth;
+      height = cssHeight;
+      
+      // PEG_RADIUS proporcional ao tamanho do tabuleiro
+      PEG_RADIUS = Math.max(2, width / 140);
       
       if (rows) {
         calculatePositions();
@@ -979,6 +995,20 @@ const pValue = chi2pValue(chi2, df);
     }
 
     document.getElementById('generate').addEventListener('click', function() {
+      // Parar qualquer simulação em andamento
+      if (spawnTimer) {
+        clearInterval(spawnTimer);
+        spawnTimer = null;
+      }
+      
+      // Zerar todas as variáveis de simulação
+      activeBalls = [];
+      finishedBalls = [];
+      finishedCounts = [];
+      currentBall = 0;
+      droppedBalls = 0;
+      totalBalls = 0;
+      
       // Limpar resultado do teste anterior
       const resultDiv = document.getElementById('chi2-result');
       resultDiv.className = 'chi2-result';
